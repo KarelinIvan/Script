@@ -212,6 +212,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                     LEFT JOIN teams ON teams.id = users.team_id
                     WHERE opportunities.assigned_user_id IN ('". implode("','", $users) ."')
                     AND opportunities.deleted = '0'
+                    AND productsale.deleted = '0'
                     AND productsale.product_id != '7349e862-4fd8-7ef0-02b2-51065deac3fb'
                     $closed_won                    
                     GROUP BY full_name
