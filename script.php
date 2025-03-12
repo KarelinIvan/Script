@@ -11,10 +11,11 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
             'FIELDS' => array (
                 array ('name' => 'name_manager',       'label' => 'Менеджер',      'width' => '10', 'sort' => true),
                 array ('name' => 'department',       'label' => 'Отдел',      'width' => '10', 'sort' => true),
-                array ('name' => 'mission_count',       'label' => 'Кол-во событий всего',      'width' => '10', 'sort' => true),
+                array ('name' => 'mission_count',       'label' => 'Кол-во отработанных событий',      'width' => '10', 'sort' => true),
                 array ('name' => 'counterparties',       'label' => 'Кол-во событий по КА',      'width' => '10', 'sort' => true),
                 array ('name' => 'preliminary_counterparties',       'label' => 'Кол-во событий по ПКА',      'width' => '10', 'sort' => true),
                 array ('name' => 'count_transaction',       'label' => 'Кол-во сделок',      'width' => '10', 'sort' => true),
+                array ('name' => 'efficiency',       'label' => 'Эффективность, %',      'width' => '10', 'sort' => true),
                 array ('name' => 'avg_quantity_transaction',       'label' => 'Среднее кол-во товара в сделке',      'width' => '10', 'sort' => true),
                 array ('name' => 'total_amount',       'label' => 'Общая сумма по сделкам',      'width' => '10', 'sort' => true),
                 array ('name' => 'avg_amount_trade',       'label' => 'Средняя сумма чека',      'width' => '10', 'sort' => true),
@@ -222,6 +223,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
         $result_deals = $dbh->query($sql_deals);
 //        echo '<pre>'; var_dump($sql_deals);
 
+
         // Цикл для перебора значений ассоциативного массива
         foreach ($users as $users_arr) {
             // Цикл для перебора значений переменной $result_events
@@ -244,7 +246,6 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 $data[$users_arr][$row_deals['users_id']]['team'] = $row_deals['team'];
                 // echo '<pre>'; var_dump($data);
             }
-            // echo '<pre>';var_dump($data);
         }
         //echo '<pre>';var_dump($data);
 
@@ -253,6 +254,9 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
         foreach ($data as  $data_array) {
             foreach ($data_array as $row) {
 //            echo '<pre>'; var_dump($row);
+                // Функция для подсчёта эффективности менеджера
+                $efficiency = round(($row['count_transactions']/$row['number_events'])*100, 2);
+
                 $data_result[] = array(
                     'name_manager' => $row['full_name'],
                     'department' => $row['team'],
@@ -263,6 +267,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                     'avg_quantity_transaction' => $row['avg_product'],
                     'avg_amount_trade' => $row['avg_sum'],
                     'total_amount' => $row['total'],
+                    'efficiency' => $efficiency,
                 );
                 $column_total = "Итого: ";
                 $sum_total += round($row['total'],2);
@@ -281,6 +286,8 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
         $avg_sum_users = round($sum_avg_trade / $sum_users, 2);
         // Подсчитывает среднее значение товаров в сделках по количеству менеджеров
         $avg_prod = round($avg_count_product / $sum_users,0);
+        // Подсчитывает общую эффективность
+        $sum_efficiency = round(($sum_transactions / $sum_events)*100, 2) ;
 
         // Вывод итого
         $data_result[] = array(
@@ -292,6 +299,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
             'counterparties'                => "<b>".$sum_count_c."</b>",
             'count_transaction'             => "<b>".$sum_transactions."</b>",
             'avg_quantity_transaction'      => "<b>".$avg_prod."</b>",
+            'efficiency'                    => "<b>".$sum_efficiency."</b>",
         );
 
         $table['DATA'] = $data_result;
