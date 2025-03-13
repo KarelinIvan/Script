@@ -138,9 +138,9 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
         $table['DESC'] = '';
 
 
-        $user = 'krylov.pavel';
-        $pass = ')Q123456789';
-        $dbh = new PDO('mysql:host=172.16.0.8;dbname=crm', $user, $pass);
+        $user = '';
+        $pass = '';
+        $dbh = new PDO('mysql:host=;dbname=', $user, $pass);
 
         // Запрос для выгрузки данных о событиях
        // $sql_events = "SELECT CONCAT(users.first_name, ' ', users.last_name) AS full_name,
