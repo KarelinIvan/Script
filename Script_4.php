@@ -1,8 +1,8 @@
 <?php
 
-$user = 'krylov.pavel';
-$pass = ')Q123456789';
-$dbh = new PDO('mysql:host=172.16.0.8;dbname=crm', $user, $pass);
+$user = '';
+$pass = '';
+$dbh = new PDO('mysql:host=;dbname=', $user, $pass);
 
 require_once("modules/Dashboard/reports/ManagersTransactions/report.php");
 $transactions_id = $_GET['user_id'];
