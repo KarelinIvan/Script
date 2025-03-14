@@ -15,6 +15,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 array ('name' => 'counterparties',       'label' => 'Кол-во событий по КА',      'width' => '10', 'sort' => true),
                 array ('name' => 'preliminary_counterparties',       'label' => 'Кол-во событий по ПКА',      'width' => '10', 'sort' => true),
                 array ('name' => 'count_transaction',       'label' => 'Кол-во сделок',      'width' => '10', 'sort' => true),
+                array ('name' => 'count_calls',       'label' => 'Кол-во звонков',      'width' => '10', 'sort' => true),
                 array ('name' => 'efficiency',       'label' => 'Эффективность, %',      'width' => '10', 'sort' => true),
                 array ('name' => 'avg_quantity_transaction',       'label' => 'Среднее кол-во товара в сделке',      'width' => '10', 'sort' => true),
                 array ('name' => 'total_amount',       'label' => 'Общая сумма по сделкам',      'width' => '10', 'sort' => true),
@@ -127,10 +128,8 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
 
         $notDeals = $this->getParam('deals');
 
-
-        //$date_from = $this->getParam('date_from');
         $datetime_from = $this->getParam('datetime_from');
-       // $date_to = $this->getParam('date_to');
+
         $datetime_to = $this->getParam('datetime_to');
 
         $table = $this->getTableMeta('default');
@@ -140,10 +139,12 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
 
         $user = '';
         $pass = '';
-        $dbh = new PDO('mysql:host=;dbname=', $user, $pass);
+        $dbh = new PDO('mysql:host=172.16.0.8;dbname=crm', $user, $pass);
+        $dbс = new PDO('mysql:host=172.16.0.8;dbname=asteriskcdrdb', $user, $pass);
+
+
 
         // Запрос для выгрузки данных о событиях
-       // $sql_events = "SELECT CONCAT(users.first_name, ' ', users.last_name) AS full_name,
         $sql_events = "SELECT CONCAT(users.last_name, ' ', users.first_name) AS full_name,
                         users.id AS users_id,
                         missions.id AS miss_id,
@@ -206,7 +207,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                             ROUND(SUM(DISTINCT opportunities.amount),2) AS total,
                            -- ROUND(AVG(opportunities.pair_count),0) AS avg_product
                            -- ROUND(AVG(productsale.id),0) AS avg_product
-                            ROUND(COUNT(productsale.id) / COUNT(DISTINCT opportunities.id),0) AS avg_product
+                            ROUND(COUNT(productsale.id) / COUNT(DISTINCT opportunities.id),1) AS avg_product
                     FROM opportunities
                     LEFT JOIN users ON users.id = opportunities.assigned_user_id
                     LEFT JOIN productsale on productsale.opportunity_id = opportunities.id
@@ -223,10 +224,28 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
         $result_deals = $dbh->query($sql_deals);
 //        echo '<pre>'; var_dump($sql_deals);
 
+        // Запрос для вывода количества совершенных звонков менеджером
+        $sql_calls ="SELECT COUNT(asteriskcdrdb.cdr.src) AS calls,
+                            crm.users.id AS users_id,
+                            CONCAT(crm.users.last_name, ' ', crm.users.first_name) AS full_name
+                     FROM asteriskcdrdb.cdr
+                     JOIN crm.users ON crm.users.phone_work COLLATE utf8_general_ci = asteriskcdrdb.cdr.src COLLATE utf8_general_ci
+                     WHERE asteriskcdrdb.cdr.calldate BETWEEN '$datetime_from' AND '$datetime_to'
+                     AND crm.users.id IN ('". implode("','", $users) ."')
+                     AND asteriskcdrdb.cdr.src LIKE '___'
+                     AND crm.users.deleted = 0
+                     AND crm.users.status = 'Active'
+                     AND asteriskcdrdb.cdr.disposition = 'ANSWERED'
+                     GROUP BY full_name
+                     ";
+
+        $result_calls = $dbс->query($sql_calls);
+//        echo '<pre>'; var_dump($sql_calls);
+
 
         // Цикл для перебора значений ассоциативного массива
         foreach ($users as $users_arr) {
-            // Цикл для перебора значений переменной $result_events
+            // Цикл для перебора значений $result_events
             while (($row_events = $result_events->fetch(PDO::FETCH_ASSOC))) {
                 $data[$users_arr][$row_events['users_id']]['full_name'] = $row_events['full_name'];
                 $data[$users_arr][$row_events['users_id']]['number_events'] = $row_events['number_events'];
@@ -235,7 +254,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 $data[$users_arr][$row_events['users_id']]['team'] = $row_events['team'];
                 // echo '<pre>';var_dump($data);
             }
-            // Цикл для перебора значений переменной $result_deals
+            // Цикл для перебора значений $result_deals
             while (($row_deals = $result_deals->fetch(PDO::FETCH_ASSOC))) {
                 $data[$users_arr][$row_deals['users_id']]['full_name'] = $row_deals['full_name'];
                 $data[$users_arr][$row_deals['users_id']]['count_transactions'] = $row_deals['count_transactions'];
@@ -245,6 +264,11 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 $data[$users_arr][$row_deals['users_id']]['count_user'] = $row_deals['count_user'];
                 $data[$users_arr][$row_deals['users_id']]['team'] = $row_deals['team'];
                 // echo '<pre>'; var_dump($data);
+            }
+            // Цикл для перебора значений $result_call
+            while (($row_calls = $result_calls->fetch(PDO::FETCH_ASSOC))) {
+                $data[$users_arr][$row_calls['users_id']]['full_name'] = $row_calls['full_name'];
+                $data[$users_arr][$row_calls['users_id']]['calls'] = $row_calls['calls'];
             }
         }
         //echo '<pre>';var_dump($data);
@@ -268,6 +292,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                     'avg_amount_trade' => $row['avg_sum'],
                     'total_amount' => $row['total'],
                     'efficiency' => $efficiency,
+                    'count_calls' => $row['calls'],
                 );
                 $column_total = "Итого: ";
                 $sum_total += round($row['total'],2);
@@ -278,6 +303,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 $sum_count_c += $row['count_c'];
                 $sum_transactions += $row['count_transactions'];
                 $avg_count_product += $row['avg_product'];
+                $sum_calls += $row['calls'];
 //                echo '<pre>'; var_dump($sum_users);
             }
         }
@@ -285,7 +311,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
         // Подсчитывает среднее значение среднего чека по количеству менеджеров
         $avg_sum_users = round($sum_avg_trade / $sum_users, 2);
         // Подсчитывает среднее значение товаров в сделках по количеству менеджеров
-        $avg_prod = round($avg_count_product / $sum_users,0);
+        $avg_prod = round($avg_count_product / $sum_users,1);
         // Подсчитывает общую эффективность
         $sum_efficiency = round(($sum_transactions / $sum_events)*100, 2) ;
 
@@ -300,6 +326,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
             'count_transaction'             => "<b>".$sum_transactions."</b>",
             'avg_quantity_transaction'      => "<b>".$avg_prod."</b>",
             'efficiency'                    => "<b>".$sum_efficiency."</b>",
+            'count_calls'                   => "<b>".$sum_calls."</b>",
         );
 
         $table['DATA'] = $data_result;
