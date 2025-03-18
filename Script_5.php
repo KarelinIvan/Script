@@ -105,36 +105,37 @@ class SimpleReportDeliverySDEK extends SimpleReport
                             DATE(opportunities.date_entered) AS date_of,
                             opportunities.amount AS summ,
                             GROUP_CONCAT(productsale.name SEPARATOR ', ') AS categories,
+                            -- productsale.name AS categories,
                             opportunities.id AS id,
-                            opportunities.sales_stage AS status
-                            -- CASE opportunities.sales_stage
-                                -- WHEN 'Prospecting' THEN 'Разведка'
-	                            -- WHEN 'Invoice send' THEN 'Выставление счета'
-	                            -- WHEN 'Invoice exposed' THEN 'Счет выставлен'
-	                            -- WHEN 'Shipment performance' THEN 'Выполнение отгрузки'
-	                            -- WHEN 'Shipment expectation' THEN 'Ожидание отгрузки'
-	                            -- WHEN 'Order send' THEN 'Товар отправлен'
-	                            -- WHEN 'Closed Won' THEN 'Закрыто с успехом'
-	                            -- WHEN 'Control' THEN 'На контроле'
-	                            -- WHEN 'Specialorder production' THEN 'Спецзаказ в производстве'
-	                            -- WHEN 'Specialorder processing' THEN 'Спецзаказ в обработке'
-	                            -- WHEN 'Specialorder' THEN 'Заказ'
-	                            -- WHEN 'Specialorder create' THEN 'Спецзаказ'
-	                            -- WHEN 'Specialorder transit' THEN 'Спецзаказ отправлен'
-	                            -- WHEN 'Rollback' THEN 'Возврат'
-	                            -- WHEN 'Rollback Won' THEN 'Возврат произведен'
-	                            -- WHEN 'ReDelivery' THEN 'Довоз внутритарки'
-	                            -- WHEN 'ReDelivery Won' THEN 'Довоз согласован'
-	                            -- WHEN 'Swap Won' THEN 'Обмен произведен'
-	                            -- WHEN 'Closed Lost' THEN 'Отмена'
-	                            -- WHEN 'Closed Lost performance' THEN 'Выполнение отмены'
-	                            -- WHEN 'Account is liquidated' THEN 'Счет оплачен'
-	                            -- WHEN 'Check multiplicity' THEN 'Подбор кратности'
-	                            -- WHEN 'Confirm multiplicity' THEN 'Кратность подобрана'
-	                            -- WHEN 'Invoice sber' THEN 'Обмен со сбер.'
-	                            -- WHEN 'Edit multiplicity' THEN 'Изменение кратности' 
-                                -- ELSE opportunities.sales_stage
-                            -- END AS status
+                            -- opportunities.sales_stage AS status
+                            CASE opportunities.sales_stage
+                                WHEN 'Prospecting' THEN 'Разведка'
+	                            WHEN 'Invoice send' THEN 'Выставление счета'
+	                            WHEN 'Invoice exposed' THEN 'Счет выставлен'
+	                            WHEN 'Shipment performance' THEN 'Выполнение отгрузки'
+	                            WHEN 'Shipment expectation' THEN 'Ожидание отгрузки'
+	                            WHEN 'Order send' THEN 'Товар отправлен'
+	                            WHEN 'Closed Won' THEN 'Закрыто с успехом'
+	                            WHEN 'Control' THEN 'На контроле'
+	                            WHEN 'Specialorder production' THEN 'Спецзаказ в производстве'
+	                            WHEN 'Specialorder processing' THEN 'Спецзаказ в обработке'
+	                            WHEN 'Specialorder' THEN 'Заказ'
+	                            WHEN 'Specialorder create' THEN 'Спецзаказ'
+	                            WHEN 'Specialorder transit' THEN 'Спецзаказ отправлен'
+	                            WHEN 'Rollback' THEN 'Возврат'
+	                            WHEN 'Rollback Won' THEN 'Возврат произведен'
+	                            WHEN 'ReDelivery' THEN 'Довоз внутритарки'
+	                            WHEN 'ReDelivery Won' THEN 'Довоз согласован'
+	                            WHEN 'Swap Won' THEN 'Обмен произведен'
+	                            WHEN 'Closed Lost' THEN 'Отмена'
+	                            WHEN 'Closed Lost performance' THEN 'Выполнение отмены'
+	                            WHEN 'Account is liquidated' THEN 'Счет оплачен'
+	                            WHEN 'Check multiplicity' THEN 'Подбор кратности'
+	                            WHEN 'Confirm multiplicity' THEN 'Кратность подобрана'
+	                            WHEN 'Invoice sber' THEN 'Обмен со сбер.'
+	                            WHEN 'Edit multiplicity' THEN 'Изменение кратности' 
+                                ELSE opportunities.sales_stage
+                            END AS status
                     FROM opportunities
                     LEFT JOIN opportunities_cstm ON opportunities.id = opportunities_cstm.id_c
                     LEFT JOIN users ON users.id = opportunities.assigned_user_id
@@ -152,10 +153,10 @@ class SimpleReportDeliverySDEK extends SimpleReport
 
 
         foreach ($que as $acc) {
-            // Переводим статус заказа на русский язык для отображения пользователю
-            if (isset($status_translations[$row['status']])) {
-                $acc['status'] = $status_translations[$acc['status']];
-            }
+//            // Переводим статус заказа на русский язык для отображения пользователю
+//            if (isset($status_translations[$row['status']])) {
+//                $acc['status'] = $status_translations[$acc['status']];
+//            }
             $data[] = array(
                 'teams' => $acc['team'],
                 'recipient_city' => $acc['city'],
