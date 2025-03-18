@@ -77,22 +77,34 @@ class SimpleReportDeliverySDEK extends SimpleReport
 		                    opportunities.shipping_address_city AS city,
                             DATE(opportunities.date_entered) AS date_of,
                             opportunities.amount AS summ,
-                            GROUP_CONCAT(DISTINCT productsale.name ORDER BY productsale.name SEPARATOR ', ') AS categories,
+                            GROUP_CONCAT(productsale.name SEPARATOR ', ') AS categories,
                             opportunities.id AS id,
                             CASE opportunities.sales_stage
                                 WHEN 'Prospecting' THEN 'Разведка'
-                                WHEN 'Invoice send' THEN 'Выставление счета'
-                                WHEN 'Invoice exposed' THEN 'Счет выставлен'
-                                WHEN 'Specialorder' THEN 'Спецзаказ'
-                                WHEN 'Specialorder processing' THEN 'Спецзаказ в обработке'
-                                WHEN 'Specialorder transit' THEN 'Спецзаказ отправлен'
-                                WHEN 'Shipment performance' THEN 'Выполнение отгрузки'
-                                WHEN 'Shipment expectation' THEN 'Ожидание отгрузки'
-                                WHEN 'Order send' THEN 'Товар отправлен'
-                                WHEN 'Closed Won' THEN 'Закрыто с успехом'
-                                WHEN 'Closed Lost performance' THEN 'Выполнение отмены'
-                                WHEN 'Check multiplicity' THEN 'Подбор кратности'
-                                WHEN 'Confirm multiplicity' THEN 'Кратность подобрана'
+	                            WHEN 'Invoice send' THEN 'Выставление счета'
+	                            WHEN 'Invoice exposed' THEN 'Счет выставлен'
+	                            WHEN 'Shipment performance' THEN 'Выполнение отгрузки'
+	                            WHEN 'Shipment expectation' THEN 'Ожидание отгрузки'
+	                            WHEN 'Order send' THEN 'Товар отправлен'
+	                            WHEN 'Closed Won' THEN 'Закрыто с успехом'
+	                            WHEN 'Control' THEN 'На контроле'
+	                            WHEN 'Specialorder production' THEN 'Спецзаказ в производстве'
+	                            WHEN 'Specialorder processing' THEN 'Спецзаказ в обработке'
+	                            WHEN 'Specialorder' THEN 'Заказ'
+	                            WHEN 'Specialorder create' THEN 'Спецзаказ'
+	                            WHEN 'Specialorder transit' THEN 'Спецзаказ отправлен'
+	                            WHEN 'Rollback' THEN 'Возврат'
+	                            WHEN 'Rollback Won' THEN 'Возврат произведен'
+	                            WHEN 'ReDelivery' THEN 'Довоз внутритарки'
+	                            WHEN 'ReDelivery Won' THEN 'Довоз согласован'
+	                            WHEN 'Swap Won' THEN 'Обмен произведен'
+	                            WHEN 'Closed Lost' THEN 'Отмена'
+	                            WHEN 'Closed Lost performance' THEN 'Выполнение отмены'
+	                            WHEN 'Account is liquidated' THEN 'Счет оплачен'
+	                            WHEN 'Check multiplicity' THEN 'Подбор кратности'
+	                            WHEN 'Confirm multiplicity' THEN 'Кратность подобрана'
+	                            WHEN 'Invoice sber' THEN 'Обмен со сбер.'
+	                            WHEN 'Edit multiplicity' THEN 'Изменение кратности' 
                                 ELSE opportunities.sales_stage
                             END AS status
                     FROM opportunities
@@ -101,9 +113,10 @@ class SimpleReportDeliverySDEK extends SimpleReport
                     LEFT JOIN teams ON teams.id = users.team_id
                     LEFT JOIN productsale ON productsale.opportunity_id = opportunities.id
                     WHERE opportunities.date_entered BETWEEN '$date_from' AND '$date_to'
-                    AND opportunities_cstm.sdek_num_c IS NOT NULL
-                    AND opportunities_cstm.sdek_num_c <> ''
+                    AND opportunities_cstm.code_pvz_c <> ''
                     AND opportunities.assigned_user_id IN (" . $managers . ")
+                    GROUP BY id
+                    ORDER BY date_of
                        ";
 //        echo '<pre>'; var_dump($sql_sdek);
 
