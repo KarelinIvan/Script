@@ -23,15 +23,6 @@ class SimpleReportDeliverySDEK extends SimpleReport
     protected $_export = true;
 
     protected function buildFilterForm($request = null)
-        /**
-         * Создает и подготавливает форму фильтра для отчета.
-         *
-         * Эта функция настраивает форму фильтра, инициализируя значения по умолчанию,
-         * загрузка необходимых зависимостей и подготовка полей диапазона дат.
-         *
-         * @param array|null $request Данные запроса. Если значение равно нулю, будет использоваться $_REQUEST.
-         * @return array Подготовленный фильтр формирует данные.
-         */
     {
         global $current_user, $app_list_strings, $current_language;
 
@@ -48,8 +39,40 @@ class SimpleReportDeliverySDEK extends SimpleReport
         if (!isset($request['date_to']))
             $request['date_to'] = '';
 
+        $form['options']['opportunity_sales_stage'] =  array('Prospecting' => 'Разведка',
+                                                            'Invoice send' => 'Выставление счета',
+                                                            'Invoice exposed' => 'Счет выставлен',
+                                                            'Shipment performance' => 'Выполнение отгрузки',
+                                                            'Shipment expectation' => 'Ожидание отгрузки',
+                                                            'Order send' => 'Товар отправлен',
+                                                            'Closed Won' => 'Закрыто с успехом',
+                                                            'Control' => 'На контроле',
+                                                            'Specialorder production' => 'Спецзаказ в производстве',
+                                                            'Specialorder processing' => 'Спецзаказ в обработке',
+                                                            'Specialorder' => 'Заказ',
+                                                            'Specialorder create' => 'Спецзаказ',
+                                                            'Specialorder transit' => 'Спецзаказ отправлен',
+                                                            'Rollback' => 'Возврат',
+                                                            'Rollback Won' => 'Возврат произведен',
+                                                            'ReDelivery' => 'Довоз внутритарки',
+                                                            'ReDelivery Won' => 'Довоз согласован',
+                                                            'Swap Won' => 'Обмен произведен',
+                                                            'Closed Lost' => 'Отмена',
+                                                            'Closed Lost performance' => 'Выполнение отмены',
+                                                            'Account is liquidated' => 'Счет оплачен',
+                                                            'Check multiplicity' => 'Подбор кратности',
+                                                            'Confirm multiplicity' => 'Кратность подобрана',
+                                                            'Invoice sber' => 'Обмен со Сбером',
+                                                            'Edit multiplicity' => 'Изменение кратности'
+                                                            );
+
+            if (isset($request['opportunity_sales_stage'])) {
+                $form['params']['opportunity_sales_stage'] = $request['opportunity_sales_stage'];
+            }
+
         return $form;
     }
+
 
     protected function buildParams()
     {
@@ -64,40 +87,13 @@ class SimpleReportDeliverySDEK extends SimpleReport
         global $current_user;
 
         $managers = "'" . implode("','", $this->getParam('user_id')) . "'";
+        $sales_stage = "'" . implode("','",$this->getParam('opportunity_sales_stage')) . "'";
 
         $table = $this->getTableMeta('default');
 
         $date_from = date("Y-m-d 00:00:00",strtotime($this->getParam("date_from")));
         $date_to = date("Y-m-d 23:59:59",strtotime($this->getParam("date_to")));
 
-        // Массив переводов статусов
-        $status_translations = [
-            'Prospecting' => 'Разведка',
-            'Invoice send' => 'Выставление счета',
-            'Invoice exposed' => 'Счет выставлен',
-            'Shipment performance' => 'Выполнение отгрузки',
-            'Shipment expectation' => 'Ожидание отгрузки',
-            'Order send' => 'Товар отправлен',
-            'Closed Won' => 'Закрыто с успехом',
-            'Control' => 'На контроле',
-            'Specialorder production' => 'Спецзаказ в производстве',
-            'Specialorder processing' => 'Спецзаказ в обработке',
-            'Specialorder' => 'Заказ',
-            'Specialorder create' => 'Спецзаказ',
-            'Specialorder transit' => 'Спецзаказ отправлен',
-            'Rollback' => 'Возврат',
-            'Rollback Won' => 'Возврат произведен',
-            'ReDelivery' => 'Довоз внутритарки',
-            'ReDelivery Won' => 'Довоз согласован',
-            'Swap Won' => 'Обмен произведен',
-            'Closed Lost' => 'Отмена',
-            'Closed Lost performance' => 'Выполнение отмены',
-            'Account is liquidated' => 'Счет оплачен',
-            'Check multiplicity' => 'Подбор кратности',
-            'Confirm multiplicity' => 'Кратность подобрана',
-            'Invoice sber' => 'Обмен со Сбером',
-            'Edit multiplicity' => 'Изменение кратности'
-        ];
 
         // Получаем список сделок по СДЭК
         $sql_sdek = "SELECT teams.name AS team,
@@ -144,6 +140,7 @@ class SimpleReportDeliverySDEK extends SimpleReport
                     WHERE opportunities.date_entered BETWEEN '$date_from' AND '$date_to'
                     AND opportunities_cstm.code_pvz_c <> ''
                     AND opportunities.assigned_user_id IN (" . $managers . ")
+                    AND opportunities.sales_stage IN (" . $sales_stage . ") 
                     GROUP BY id
                     ORDER BY date_of
                        ";
