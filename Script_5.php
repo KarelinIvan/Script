@@ -237,9 +237,10 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                      FROM asteriskcdrdb.cdr
                      JOIN crm.users ON crm.users.phone_work COLLATE utf8_general_ci = asteriskcdrdb.cdr.src COLLATE utf8_general_ci
                      JOIN crm.teams ON crm.teams.id = crm.users.team_id
-                     WHERE asteriskcdrdb.cdr.calldate BETWEEN '$datetime_from' AND '$datetime_to'
+                     WHERE asteriskcdrdb.cdr.calldate BETWEEN '$date_from_t' AND '$date_to_t'
                      AND crm.users.id IN ('". implode("','", $users) ."')
-                     AND asteriskcdrdb.cdr.src LIKE '___'
+                     AND LENGTH(asteriskcdrdb.cdr.dst) >= 10
+                     AND asteriskcdrdb.cdr.billsec >= 30
                      -- AND crm.users.deleted = 0
                      -- AND crm.users.status = 'Active'
                      -- AND asteriskcdrdb.cdr.disposition = 'ANSWERED' -- Выведет только отвеченные звонки
