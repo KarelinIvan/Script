@@ -239,11 +239,13 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                      JOIN crm.teams ON crm.teams.id = crm.users.team_id
                      WHERE asteriskcdrdb.cdr.calldate BETWEEN '$date_from_t' AND '$date_to_t'
                      AND crm.users.id IN ('". implode("','", $users) ."')
-                     AND LENGTH(asteriskcdrdb.cdr.dst) >= 10
+                     AND LENGTH(asteriskcdrdb.cdr.dst) > 5
+                     AND asteriskcdrdb.cdr.dcontext = 'from-internal'
+                     AND asteriskcdrdb.cdr.disposition IN ('ANSWERED','NO ANSWER')
                      AND asteriskcdrdb.cdr.billsec >= 30
-                     -- AND crm.users.deleted = 0
-                     -- AND crm.users.status = 'Active'
-                     -- AND asteriskcdrdb.cdr.disposition = 'ANSWERED' -- Выведет только отвеченные звонки
+                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%БАЗА%'
+                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Отказ%'
+                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Неотработанные%'
                      GROUP BY full_name
                      ";
 
