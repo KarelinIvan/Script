@@ -15,7 +15,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 array ('name' => 'counterparties',       'label' => 'Кол-во событий по КА',      'width' => '10', 'sort' => true),
                 array ('name' => 'preliminary_counterparties',       'label' => 'Кол-во событий по ПКА',      'width' => '10', 'sort' => true),
                 array ('name' => 'count_transaction',       'label' => 'Кол-во сделок',      'width' => '10', 'sort' => true),
-                array ('name' => 'count_calls',       'label' => 'Кол-во звонков',      'width' => '10', 'sort' => true),
+                array ('name' => 'count_calls',       'label' => 'Кол-во звонков КА',      'width' => '10', 'sort' => true),
                 array ('name' => 'efficiency',       'label' => 'Эффективность, %',      'width' => '10', 'sort' => true),
                 array ('name' => 'avg_quantity_transaction',       'label' => 'Среднее кол-во товара в сделке',      'width' => '10', 'sort' => true),
                 array ('name' => 'total_amount',       'label' => 'Общая сумма по сделкам',      'width' => '10', 'sort' => true),
@@ -147,7 +147,37 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
         $dbh = new PDO('mysql:host=172.16.0.8;dbname=***', $user, $pass);
         $dbс = new PDO('mysql:host=172.16.0.8;dbname=***', $user, $pass);
 
-
+        // Список отделов
+        $list_teams = array(
+            '2c3965cc-926b-1f5e-4bb6-550aa8a02c6c',
+            'dcb6b8d5-9f47-f619-5b58-65ae4e01080e',
+            '563150b1-7e4e-0c78-59cc-660e731bbe8b',
+            '81bbf244-8c01-10a4-4be1-659d17feab10',
+            'b3f0f476-03f6-7f45-1d48-54230800c268',
+            'b57e4d8a-0256-2358-c128-661e2510fb46',
+            'd3233b41-8093-7baf-1447-6617a99ce29f',
+            'e28c0094-06a8-c65e-4795-6617a9f70d62',
+            'f383a801-ada4-8236-c8d2-6617a9d7ac23',
+            'aaca3c55-5605-de8e-9318-660fb15cefa2',
+            '57d9fbea-24a3-bf7d-1770-660fb16dcdb1',
+            'a1c48a96-ff27-f312-5d41-660fb1d5e721',
+            'e0a42418-6a26-3adc-6c5b-55d431ddfad8',
+            '670da544-2c37-2c67-7f5b-65ae4e6f0feb',
+            'e1bcfe3e-5b4f-6e4b-83b3-65aa1dd37aab',
+            'a7030372-21b6-1e95-fec1-65aa1dfdfd9e',
+            '126394f7-0570-a22b-873f-59314e2fb541',
+            '18f7a4ff-3c42-0daf-22cf-661f97ae987a',
+            '17b95305-c01e-1d8b-cdc7-65ae4e40a651',
+            '75c06441-0ea1-4cbc-80b6-660fdbbfafcb',
+            'be0f2c6f-7839-dd83-c2f1-65aa2bea1ea1',
+            'b6785fea-e055-ca93-4594-65aa2b3a0267',
+            '52042a38-7201-b7b0-9868-65a622c4a29f',
+            'd6b53d22-d869-6b92-69e7-65ae4d331e0c',
+            '944af9fe-3105-3a21-aa95-5f6aefc3a517',
+            '55d21fef-f328-0c38-dcbf-660e461cf8fc',
+            '85ad4646-f4fe-cfbb-414e-65aa63d60105',
+            '327eae14-1976-16f1-f743-660e46b9abac'
+        );
 
         // Запрос для выгрузки данных о событиях
         $sql_events = "SELECT CONCAT(users.last_name, ' ', users.first_name) AS full_name,
@@ -170,11 +200,11 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 WHERE missions_audit.created_by IN ('". implode("','", $users) ."')
                 AND missions_audit.after_value_string IN ('".implode("','", $mission_status)."')
                 AND missions.parent_type IN ('". implode("', '", $mission_parent_type) ."')
-                 -- AND accounts.status IN ('". implode("', '", $mission_account_type) ."')
                 AND DATE_ADD(missions.date_modified, INTERVAL 3 HOUR) <= '$datetime_to'
                 AND DATE_ADD(missions.date_modified, INTERVAL 3 HOUR) >= '$datetime_from'
                 AND DATE_ADD(missions_audit.date_created, INTERVAL 3 HOUR) <= '$datetime_to'
                 AND DATE_ADD(missions_audit.date_created, INTERVAL 3 HOUR) >= '$datetime_from'
+                AND teams.id IN ('". implode("','", $list_teams) ."')
                 GROUP BY missions_audit.created_by
                 ORDER BY full_name";
 
@@ -191,7 +221,6 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                            WHERE opportunities_audit.parent_id = opportunities.id 
                            AND opportunities_audit.date_created BETWEEN '$date_from_t' AND '$date_to_t' 
                            AND opportunities_audit.after_value_string = 'Shipment performance'
-                           AND opportunities.sales_stage NOT IN ('Closed Lost')
                            )";
         }else{
             $closed_won = "AND opportunities.date_closed BETWEEN '$datetime_from' AND '$datetime_to'
@@ -206,12 +235,9 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                             opportunities.id as opp_id,
                             teams.name AS team,
                             COUNT(DISTINCT opportunities.id) AS count_transactions,
-                            -- ROUND(AVG(opportunities.amount),2) AS avg_sum,
                             COUNT(DISTINCT users.id) AS count_user,
                             ROUND(SUM(DISTINCT opportunities.amount) / COUNT(DISTINCT opportunities.id),2) AS avg_sum,
                             ROUND(SUM(DISTINCT opportunities.amount),2) AS total,
-                           -- ROUND(AVG(opportunities.pair_count),0) AS avg_product
-                           -- ROUND(AVG(productsale.id),0) AS avg_product
                             ROUND(COUNT(productsale.id) / COUNT(DISTINCT opportunities.id),1) AS avg_product
                     FROM opportunities
                     LEFT JOIN users ON users.id = opportunities.assigned_user_id
@@ -221,6 +247,8 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                     AND opportunities.deleted = '0'
                     AND productsale.deleted = '0'
                     AND productsale.product_id != '7349e862-4fd8-7ef0-02b2-51065deac3fb'
+                    AND opportunities.sales_stage NOT IN ('Closed Lost')
+                    AND teams.id IN ('". implode("','", $list_teams) ."')
                     $closed_won                    
                     GROUP BY full_name
                     ORDER BY full_name
@@ -246,6 +274,9 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                      AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%БАЗА%'
                      AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Отказ%'
                      AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Неотработанные%'
+                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Необработанные%'
+                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%УВОЛЕН%'
+                     AND crm.teams.id IN ('". implode("','", $list_teams) ."')
                      GROUP BY full_name
                      ";
 
