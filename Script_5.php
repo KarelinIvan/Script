@@ -223,7 +223,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                            AND opportunities_audit.after_value_string = 'Shipment performance'
                            )";
         }else{
-            $closed_won = "AND opportunities.date_closed BETWEEN '$datetime_from' AND '$datetime_to'
+            $closed_won = "AND opportunities.date_closed BETWEEN '$date_from_t' AND '$date_to_t'
                            AND opportunities.sales_stage = 'Closed Won'";
         }
 
@@ -238,11 +238,13 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                             COUNT(DISTINCT users.id) AS count_user,
                             ROUND(SUM(DISTINCT opportunities.amount) / COUNT(DISTINCT opportunities.id),2) AS avg_sum,
                             ROUND(SUM(DISTINCT opportunities.amount),2) AS total,
-                            ROUND(COUNT(productsale.id) / COUNT(DISTINCT opportunities.id),1) AS avg_product
+                            ROUND(COUNT(DISTINCT productcat.id) / COUNT(DISTINCT opportunities.id),1) AS avg_product
                     FROM opportunities
                     LEFT JOIN users ON users.id = opportunities.assigned_user_id
                     LEFT JOIN productsale on productsale.opportunity_id = opportunities.id
                     LEFT JOIN teams ON teams.id = users.team_id
+                    LEFT JOIN product ON product.id = productsale.product_id
+                    LEFT JOIN productcat ON productcat.id = product.category_id
                     WHERE opportunities.assigned_user_id IN ('". implode("','", $users) ."')
                     AND opportunities.deleted = '0'
                     AND productsale.deleted = '0'
@@ -250,8 +252,8 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                     AND opportunities.sales_stage NOT IN ('Closed Lost')
                     AND teams.id IN ('". implode("','", $list_teams) ."')
                     $closed_won                    
-                    GROUP BY full_name
-                    ORDER BY full_name
+                    GROUP BY users.id
+                    ORDER BY users.id
                     ";
 
         $result_deals = $dbh->query($sql_deals);
@@ -276,6 +278,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                      AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Неотработанные%'
                      AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Необработанные%'
                      AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%УВОЛЕН%'
+                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Свободный Привод%'
                      AND crm.teams.id IN ('". implode("','", $list_teams) ."')
                      GROUP BY full_name
                      ";
