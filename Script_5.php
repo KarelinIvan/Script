@@ -15,9 +15,11 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 array ('name' => 'counterparties',       'label' => 'Кол-во событий по КА',      'width' => '10', 'sort' => true),
                 array ('name' => 'preliminary_counterparties',       'label' => 'Кол-во событий по ПКА',      'width' => '10', 'sort' => true),
                 array ('name' => 'count_transaction',       'label' => 'Кол-во сделок',      'width' => '10', 'sort' => true),
-                array ('name' => 'count_calls',       'label' => 'Кол-во звонков КА',      'width' => '10', 'sort' => true),
+                array ('name' => 'count_calls',       'label' => 'Кол-во исходящих звонков',      'width' => '10', 'sort' => true),
+                array ('name' => 'count_inc_calls',       'label' => 'Кол-во входящих звонков',      'width' => '10', 'sort' => true),
                 array ('name' => 'efficiency',       'label' => 'Эффективность, %',      'width' => '10', 'sort' => true),
-                array ('name' => 'avg_quantity_transaction',       'label' => 'Среднее кол-во товара в сделке',      'width' => '10', 'sort' => true),
+                array ('name' => 'categories_quantity',       'label' => 'Кол-во кат.товара в сделке',      'width' => '10', 'sort' => true),
+                array ('name' => 'avg_quantity_transaction',       'label' => 'Ср.кол-во кат.товара в сделке',      'width' => '10', 'sort' => true),
                 array ('name' => 'total_amount',       'label' => 'Общая сумма по сделкам',      'width' => '10', 'sort' => true),
                 array ('name' => 'avg_amount_trade',       'label' => 'Средняя сумма чека',      'width' => '10', 'sort' => true),
             ),
@@ -234,6 +236,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                             users.id as users_id,
                             opportunities.id as opp_id,
                             teams.name AS team,
+                            COUNT(DISTINCT productcat.id) AS col_cat,
                             COUNT(DISTINCT opportunities.id) AS count_transactions,
                             COUNT(DISTINCT users.id) AS count_user,
                             ROUND(SUM(DISTINCT opportunities.amount) / COUNT(DISTINCT opportunities.id),2) AS avg_sum,
@@ -287,6 +290,34 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
 //        echo '<pre>'; var_dump($sql_calls);
 
 
+        // Запрос для вывода количества входящих звонков менеджеру
+        $sql_incoming = "SELECT COUNT(asteriskcdrdb.phone) AS incoming_calls,
+                                      CONCAT(users.last_name, ' ', users.first_name) AS full_name,
+                                      teams.name AS team,
+                                      users.id as users_id
+                                FROM (SELECT CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(cdr.userfield, 'g', -1), '-', 1) AS UNSIGNED) AS phone
+                                      FROM asteriskcdrdb.cdr
+                                      WHERE cdr.calldate BETWEEN '$date_from_t' AND '$date_to_t'
+                                      AND cdr.dcontext IN ('ext-group', 'from-internal')
+                                      AND cdr.disposition IN ('ANSWERED')
+                                      AND LENGTH(cdr.src) > 5
+                                      AND cdr.billsec >= 10) asteriskcdrdb
+                                JOIN crm.users users ON users.phone_work COLLATE utf8_general_ci = asteriskcdrdb.phone COLLATE utf8_general_ci
+                                JOIN crm.teams teams ON teams.id = users.team_id
+                                WHERE users.id IN ('". implode("','", $users) ."')
+                                AND teams.id IN ('". implode("','", $list_teams) ."')
+                                AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%БАЗА%'
+                                AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Отказ%'
+                                AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Неотработанные%'
+                                AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Необработанные%'
+                                AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%УВОЛЕН%'
+                                AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Свободный Привод%'
+                                GROUP BY full_name";
+
+        $result_incoming = $dbс->query($sql_incoming);
+//        echo '<pre>'; var_dump($result_incoming);
+
+
         // Цикл для перебора значений ассоциативного массива
         foreach ($users as $users_arr) {
             // Цикл для перебора значений $result_events
@@ -307,6 +338,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 $data[$users_arr][$row_deals['users_id']]['total'] = $row_deals['total'];
                 $data[$users_arr][$row_deals['users_id']]['count_user'] = $row_deals['count_user'];
                 $data[$users_arr][$row_deals['users_id']]['team'] = $row_deals['team'];
+                $data[$users_arr][$row_deals['users_id']]['col_cat'] = $row_deals['col_cat'];
                 // echo '<pre>'; var_dump($data);
             }
             // Цикл для перебора значений $result_call
@@ -314,6 +346,12 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 $data[$users_arr][$row_calls['users_id']]['full_name'] = $row_calls['full_name'];
                 $data[$users_arr][$row_calls['users_id']]['calls'] = $row_calls['calls'];
                 $data[$users_arr][$row_calls['users_id']]['team'] = $row_calls['team'];
+            }
+            // Цикл для перебора значений $result_inc_calls
+            while (($row_incoming = $result_incoming->fetch(PDO::FETCH_ASSOC))) {
+                $data[$users_arr][$row_incoming['users_id']]['full_name'] = $row_incoming['full_name'];
+                $data[$users_arr][$row_incoming['users_id']]['incoming_calls'] = $row_incoming['incoming_calls'];
+                $data[$users_arr][$row_incoming['users_id']]['team'] = $row_incoming['team'];
             }
         }
         //echo '<pre>';var_dump($data);
@@ -338,6 +376,8 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                     'total_amount' => $row['total'],
                     'efficiency' => $efficiency,
                     'count_calls' => $row['calls'],
+                    'count_inc_calls' => $row['incoming_calls'],
+                    'categories_quantity' => $row['col_cat'],
                 );
                 $column_total = "Итого: ";
                 $sum_total += round($row['total'],2);
@@ -349,13 +389,14 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 $sum_transactions += $row['count_transactions'];
                 $avg_count_product += $row['avg_product'];
                 $sum_calls += $row['calls'];
+                $sum_incoming += $row['incoming_calls'];
 //                echo '<pre>'; var_dump($sum_users);
             }
         }
 
         // Подсчитывает среднее значение среднего чека по количеству менеджеров
         $avg_sum_users = round($sum_avg_trade / $sum_users, 2);
-        // Подсчитывает среднее значение товаров в сделках по количеству менеджеров
+        // Подсчитывает среднее значение категорий товаров в сделках по количеству менеджеров
         $avg_prod = round($avg_count_product / $sum_users,1);
         // Подсчитывает общую эффективность
         $sum_efficiency = round(($sum_transactions / $sum_events)*100, 2) ;
@@ -372,6 +413,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
             'avg_quantity_transaction'      => "<b>".$avg_prod."</b>",
             'efficiency'                    => "<b>".$sum_efficiency."</b>",
             'count_calls'                   => "<b>".$sum_calls."</b>",
+            'count_inc_calls'               => "<b>".$sum_incoming."</b>",
         );
 
         $table['DATA'] = $data_result;
