@@ -207,6 +207,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 AND DATE_ADD(missions_audit.date_created, INTERVAL 3 HOUR) <= '$datetime_to'
                 AND DATE_ADD(missions_audit.date_created, INTERVAL 3 HOUR) >= '$datetime_from'
                 AND teams.id IN ('". implode("','", $list_teams) ."')
+                AND CONCAT(users.last_name, ' ', users.first_name) NOT LIKE '%УВОЛЕН%'
                 GROUP BY missions_audit.created_by
                 ORDER BY full_name";
 
@@ -254,6 +255,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                     AND productsale.product_id != '7349e862-4fd8-7ef0-02b2-51065deac3fb'
                     AND opportunities.sales_stage NOT IN ('Closed Lost')
                     AND teams.id IN ('". implode("','", $list_teams) ."')
+                    AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Отказ%'
                     $closed_won                    
                     GROUP BY users.id
                     ORDER BY users.id
