@@ -10,6 +10,7 @@ class SimpleReportDeliverySDEK extends SimpleReport
             'NAMESPACE' => 'default',
             'PAGINATION' => true,
             'FIELDS' => array(
+                array('name' => 'request_num', 'label' => '№ заявки', 'width' => '5', 'sort' => false),
                 array('name' => 'teams', 'label' => 'Отдел продаж', 'width' => '5', 'sort' => false),
                 array('name' => 'recipient_city', 'label' => 'Город получателя', 'width' => '5', 'sort' => false),
                 array('name' => 'issue_date', 'label' => 'Дата оформления заказа', 'width' => '5', 'sort' => false),
@@ -103,6 +104,8 @@ class SimpleReportDeliverySDEK extends SimpleReport
                             GROUP_CONCAT(productsale.name SEPARATOR ', ') AS categories,
                             -- productsale.name AS categories,
                             opportunities.id AS id,
+                            opportunities.invoice_num AS invoice,
+                            opportunities.request_num AS request,
                             -- opportunities.sales_stage AS status
                             CASE opportunities.sales_stage
                                 WHEN 'Prospecting' THEN 'Разведка'
@@ -161,6 +164,7 @@ class SimpleReportDeliverySDEK extends SimpleReport
                 'order_amount'  => $acc['summ'],
                 'product_categories'  => $acc['categories'],
                 'order_status'  => $acc['status'],
+                'request_num' => $acc['request'],
             );
 
             $sum_amount += round($acc['summ'],2);
