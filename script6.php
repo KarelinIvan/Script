@@ -82,7 +82,8 @@ $dbh = new PDO('mysql:host=172.16.0.8;dbname=crm', $user, $pass);
                     CONCAT(users.last_name, ' ', users.first_name) AS full_name,
                     users.id as users_id,
                     COUNT(DISTINCT opportunities.id) AS opp,
-                    COUNT(DISTINCT productcat.id) AS count_categories
+                    -- COUNT(DISTINCT productcat.id) AS count_categories,
+                    COUNT(DISTINCT productsale.id) AS count_product
             FROM opportunities
             LEFT JOIN productsale ON productsale.opportunity_id = opportunities.id 
             LEFT JOIN product ON productsale.product_id = product.id 
@@ -138,7 +139,7 @@ foreach ($teamsList as $teams) {
         $data[$teams][$row_s['users_id']]['full_name'] = $row_s['full_name'];
         $data[$teams][$row_s['users_id']]['team'] = $row_s['team'];
         $data[$teams][$row_s['users_id']]['opp'] = $row_s['opp'];
-        $data[$teams][$row_s['users_id']]['count_categories'] = $row_s['count_categories'];
+        $data[$teams][$row_s['users_id']]['count_product'] = $row_s['count_product'];
 //        echo "<pre>";var_dump($row_s);
 //        echo "<pre>";var_dump($stmp);
     }
@@ -161,7 +162,7 @@ echo		"<tr>";
 echo			"<th>Отдел</th>";
 echo			"<th>Менеджер</th>";
 echo			"<th>Кол-во сделок</th>";
-echo			"<th>Кол-во категорий товара</th>";
+echo			"<th>Кол-во товаров</th>";
 echo			"<th>Кол-во событий</th>";
 echo		"</tr>";
 echo	"</thead>";
@@ -170,11 +171,13 @@ foreach ($data as $i => $arData) {
 //    echo "<pre>";var_dump($arData);
 
     foreach ($arData as $row) {
+//            $count++;
             echo "<tr>";
+//            echo "<td>{$count}</td>";
             echo "<td>{$row['team']}</td>";
             echo "<td>{$row['full_name']}</td>";
             echo "<td>{$row['opp']}</td>";
-            echo "<td>{$row['count_categories']}</td>";
+            echo "<td>{$row['count_product']}</td>";
             echo "<td>{$row['number_events']}</td>";
             echo "</tr>";
     };
@@ -198,7 +201,7 @@ $sheet->getStyle("A1:E1")->getFont()->setBold(true);
 $sheet->setCellValue("A1", 'Отдел');
 $sheet->setCellValue("B1", 'Менеджер');
 $sheet->setCellValue("C1", 'Кол-во сделок');
-$sheet->setCellValue("D1", 'Кол-во категорий товара');
+$sheet->setCellValue("D1", 'Кол-во товаров');
 $sheet->setCellValue("E1", 'Кол-во событий');
 
 $sheet->getColumnDimension("A")->setAutoSize(true);
@@ -215,7 +218,7 @@ foreach ($data as $i => $arData) {
         $sheet->setCellValue("A" . $index, $row['team']);
         $sheet->setCellValue("B" . $index, $row['full_name']);
         $sheet->setCellValue("C" . $index, $row['opp']);
-        $sheet->setCellValue("D" . $index, $row['count_categories']);
+        $sheet->setCellValue("D" . $index, $row['count_product']);
         $sheet->setCellValue("E" . $index, $row['number_events']);
 
 //    echo "<pre>";var_dump($sheet);
@@ -233,7 +236,7 @@ $border = array(
 );
 $sheet->getStyle("A1:E{$index}")->applyFromArray($border);
 
-$name = str_replace(".","-","Список сделок $dateEnd").".xlsx";
+$name = str_replace(".","-","Список сделок и событий $dateEnd").".xlsx";
 $fileDir = "/var/www/html/reportsToMail/everydayManagersMissionsNew/";
 $fileAdr = "$fileDir$name";
 
@@ -242,11 +245,12 @@ $objWriter = new PHPExcel_Writer_Excel2007($xls);
 $objWriter->save($fileAdr);
 //echo ($dateEnd);
 
-$thm = "Сформирован список сделок за период  $dateBegingSQL - $dateEnd.";
-$html = "Сформирован список сделок за период  $dateBegingSQL - $dateEnd.<br />Отчёт находится в приложенном к письму файле.";
+$thm = "Сформирован список сделок и событий за период  $dateBegingSQL - $dateEnd.";
+$html = "Сформирован список сделок и событий за период  $dateBegingSQL - $dateEnd.<br />Отчёт находится в приложенном к письму файле.";
 
 //$mail_to = "crm.report@siz37.ru";
-$mail_to2 = "karelin.ivan@siz37.ru";
+//$mail_to2 = "karelin.ivan@siz37.ru";
+$mail_to3 = "manager.890@siz37.ru";
 
 
 $fp = fopen($fileAdr,"rb");
@@ -279,4 +283,5 @@ $multipart .= chunk_split(base64_encode($file));
 $multipart .= "$EOL--$boundary--$EOL";
 
 //mail($mail_to, $thm, $multipart, $headers);
-mail($mail_to2, $thm, $multipart, $headers);
+//mail($mail_to2, $thm, $multipart, $headers);
+mail($mail_to3, $thm, $multipart, $headers);
