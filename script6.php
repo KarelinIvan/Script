@@ -77,7 +77,8 @@ $dbh = new PDO('mysql:host=172.16.0.8;dbname=crm', $user, $pass);
 
 
 
-//        echo "<pre>";var_dump($teams);
+    # Запрос для вывода количества сделок, товаров в сделках у каждого менеджера
+    # поиск производиться по массиву $teamsList содержащему id отделов продаж
     $sql = "SELECT teams.name AS team,
                     CONCAT(users.last_name, ' ', users.first_name) AS full_name,
                     users.id as users_id,
@@ -110,6 +111,8 @@ $dbh = new PDO('mysql:host=172.16.0.8;dbname=crm', $user, $pass);
 //            echo "<pre>"; var_dump($stmp);
 
 
+    # Запрос для вывода количества событий у каждого менеджера
+    # поиск производиться по массиву $teamsList содержащему id отделов продаж
     $sql_events = "SELECT CONCAT(users.last_name, ' ', users.first_name) AS full_name,
                             teams.name AS team,
                             users.id as users_id,
@@ -133,7 +136,34 @@ $dbh = new PDO('mysql:host=172.16.0.8;dbname=crm', $user, $pass);
 //            echo '<pre>'; var_dump($stmp2);
 
 
+    # Запрос для вывода количества совершенных звонков менеджерами с рабочих номеров контрагентам
+    # поиск производиться по массиву $teamsList содержащему id отделов продаж
+    $sql_calls ="SELECT COUNT(asteriskcdrdb.cdr.src) AS calls,
+                        crm.users.id AS users_id,
+                        crm.teams.name AS team,
+                        CONCAT(crm.users.last_name, ' ', crm.users.first_name) AS full_name
+                 FROM asteriskcdrdb.cdr
+                 JOIN crm.users ON crm.users.phone_work COLLATE utf8_general_ci = asteriskcdrdb.cdr.src COLLATE utf8_general_ci
+                 JOIN crm.teams ON crm.teams.id = crm.users.team_id
+                 WHERE asteriskcdrdb.cdr.calldate BETWEEN '$dateBegingSQL' AND '$dateEnd'
+                 AND LENGTH(asteriskcdrdb.cdr.dst) > 5
+                 AND asteriskcdrdb.cdr.dcontext = 'from-internal'
+                 AND asteriskcdrdb.cdr.disposition IN ('ANSWERED','NO ANSWER')
+                 AND asteriskcdrdb.cdr.billsec >= 30
+                 AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%БАЗА%'
+                 AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Отказ%'
+                 AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Неотработанные%'
+                 AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Необработанные%'
+                 AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%УВОЛЕН%'
+                 AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Свободный Привод%'
+                 AND crm.teams.id IN ('". implode("','", $teamsList) ."')
+                 GROUP BY crm.teams.name, CONCAT(crm.users.last_name, ' ', crm.users.first_name)
+                     ";
+                $stmp3 = $dbh->query($sql_calls);
 
+
+
+# Цикл для формирования массива $data из запросов выше
 foreach ($teamsList as $teams) {
     while (($row_s = $stmp->fetch(PDO::FETCH_ASSOC))){
         $data[$teams][$row_s['users_id']]['full_name'] = $row_s['full_name'];
@@ -150,6 +180,12 @@ foreach ($teamsList as $teams) {
         $data[$teams][$row_e['users_id']]['number_events'] = $row_e['number_events'];
 //        echo "<pre>";var_dump($row_e);
     }
+
+    while (($row_c = $stmp3->fetch(PDO::FETCH_ASSOC))){
+        $data[$teams][$row_c['users_id']]['full_name'] = $row_c['full_name'];
+        $data[$teams][$row_c['users_id']]['team'] = $row_c['team'];
+        $data[$teams][$row_c['users_id']]['calls'] = $row_c['calls'];
+    }
 //    echo "<pre>";var_dump($teams);
 //    echo "<pre>";var_dump($data);
 }
@@ -164,6 +200,7 @@ echo			"<th>Менеджер</th>";
 echo			"<th>Кол-во сделок</th>";
 echo			"<th>Кол-во товаров</th>";
 echo			"<th>Кол-во событий</th>";
+echo			"<th>Кол-во исходящих звонков (не менее 30 сек.)</th>";
 echo		"</tr>";
 echo	"</thead>";
 echo	"<tbody>";
@@ -179,6 +216,7 @@ foreach ($data as $i => $arData) {
             echo "<td>{$row['opp']}</td>";
             echo "<td>{$row['count_product']}</td>";
             echo "<td>{$row['number_events']}</td>";
+            echo "<td>{$row['calls']}</td>";
             echo "</tr>";
     };
 }
@@ -195,20 +233,22 @@ $sheet = $xls->getActiveSheet();
 $sheet->setTitle('Сделки');
 
 
-$sheet->getStyle('A1:E1')->getAlignment()->setHorizontal(
+$sheet->getStyle('A1:F1')->getAlignment()->setHorizontal(
     PHPExcel_Style_Alignment::HORIZONTAL_CENTER);
-$sheet->getStyle("A1:E1")->getFont()->setBold(true);
+$sheet->getStyle("A1:F1")->getFont()->setBold(true);
 $sheet->setCellValue("A1", 'Отдел');
 $sheet->setCellValue("B1", 'Менеджер');
 $sheet->setCellValue("C1", 'Кол-во сделок');
 $sheet->setCellValue("D1", 'Кол-во товаров');
 $sheet->setCellValue("E1", 'Кол-во событий');
+$sheet->setCellValue("F1", 'Кол-во исходящих звонков (не менее 30 сек.)');
 
 $sheet->getColumnDimension("A")->setAutoSize(true);
 $sheet->getColumnDimension("B")->setAutoSize(true);
 $sheet->getColumnDimension("C")->setAutoSize(true);
 $sheet->getColumnDimension("D")->setAutoSize(true);
 $sheet->getColumnDimension("E")->setAutoSize(true);
+$sheet->getColumnDimension("F")->setAutoSize(true);
 
 $index = 2;
 
@@ -220,6 +260,7 @@ foreach ($data as $i => $arData) {
         $sheet->setCellValue("C" . $index, $row['opp']);
         $sheet->setCellValue("D" . $index, $row['count_product']);
         $sheet->setCellValue("E" . $index, $row['number_events']);
+        $sheet->setCellValue("F" . $index, $row['calls']);
 
 //    echo "<pre>";var_dump($sheet);
         $index++;
@@ -234,9 +275,9 @@ $border = array(
         )
     )
 );
-$sheet->getStyle("A1:E{$index}")->applyFromArray($border);
+$sheet->getStyle("A1:F{$index}")->applyFromArray($border);
 
-$name = str_replace(".","-","Список сделок и событий $dateEnd").".xlsx";
+$name = str_replace(".","-","Список сделок, событий и звонков $dateEnd").".xlsx";
 $fileDir = "/var/www/html/reportsToMail/everydayManagersMissionsNew/";
 $fileAdr = "$fileDir$name";
 
@@ -245,8 +286,8 @@ $objWriter = new PHPExcel_Writer_Excel2007($xls);
 $objWriter->save($fileAdr);
 //echo ($dateEnd);
 
-$thm = "Сформирован список сделок и событий за период  $dateBegingSQL - $dateEnd.";
-$html = "Сформирован список сделок и событий за период  $dateBegingSQL - $dateEnd.<br />Отчёт находится в приложенном к письму файле.";
+$thm = "Сформирован список сделок, событий и звонков за период  $dateBegingSQL - $dateEnd.";
+$html = "Сформирован список сделок, событий и звонков за период  $dateBegingSQL - $dateEnd.<br />Отчёт находится в приложенном к письму файле.";
 
 //$mail_to = "crm.report@siz37.ru";
 //$mail_to2 = "karelin.ivan@siz37.ru";
