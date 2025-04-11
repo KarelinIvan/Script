@@ -16,8 +16,11 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 array ('name' => 'preliminary_counterparties',       'label' => 'Кол-во событий по ПКА',      'width' => '10', 'sort' => true),
                 array ('name' => 'count_transaction',       'label' => 'Кол-во сделок',      'width' => '10', 'sort' => true),
                 array ('name' => 'count_calls',       'label' => 'Кол-во исходящих звонков',      'width' => '10', 'sort' => true),
+                array ('name' => 'count_calls_ka',       'label' => 'Кол-во исходящих звонков КА',      'width' => '10', 'sort' => true),
+                array ('name' => 'count_calls_pka',       'label' => 'Кол-во исходящих звонков ПКА',      'width' => '10', 'sort' => true),
                 array ('name' => 'count_inc_calls',       'label' => 'Кол-во входящих звонков',      'width' => '10', 'sort' => true),
                 array ('name' => 'efficiency',       'label' => 'Эффективность, %',      'width' => '10', 'sort' => true),
+                array ('name' => 'count_product',       'label' => 'Кол-во товаров',      'width' => '10', 'sort' => true),
                 array ('name' => 'categories_quantity',       'label' => 'Кол-во кат.товара в сделке',      'width' => '10', 'sort' => true),
                 array ('name' => 'avg_quantity_transaction',       'label' => 'Ср.кол-во кат.товара в сделке',      'width' => '10', 'sort' => true),
                 array ('name' => 'total_amount',       'label' => 'Общая сумма по сделкам',      'width' => '10', 'sort' => true),
@@ -146,8 +149,8 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
 
         $user = '***';
         $pass = '***';
-        $dbh = new PDO('mysql:host=172.16.0.8;dbname=***', $user, $pass);
-        $dbс = new PDO('mysql:host=172.16.0.8;dbname=***', $user, $pass);
+        $dbh = new PDO('mysql:host=172.16.0.8;dbname=crm', $user, $pass);
+        $dbc = new PDO('mysql:host=172.16.0.8;dbname=asteriskcdrdb', $user, $pass);
 
         // Список отделов
         $list_teams = array(
@@ -238,6 +241,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                             opportunities.id as opp_id,
                             teams.name AS team,
                             COUNT(DISTINCT productcat.id) AS col_cat,
+                            COUNT(DISTINCT productsale.id) AS col_pr,
                             COUNT(DISTINCT opportunities.id) AS count_transactions,
                             COUNT(DISTINCT users.id) AS count_user,
                             ROUND(SUM(DISTINCT opportunities.amount) / COUNT(DISTINCT opportunities.id),2) AS avg_sum,
@@ -264,32 +268,99 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
         $result_deals = $dbh->query($sql_deals);
 //        echo '<pre>'; var_dump($sql_deals);
 
-        // Запрос для вывода количества совершенных звонков менеджером
-        $sql_calls ="SELECT COUNT(asteriskcdrdb.cdr.src) AS calls,
-                            crm.users.id AS users_id,
-                            crm.teams.name AS team,
-                            CONCAT(crm.users.last_name, ' ', crm.users.first_name) AS full_name
-                     FROM asteriskcdrdb.cdr
-                     JOIN crm.users ON crm.users.phone_work COLLATE utf8_general_ci = asteriskcdrdb.cdr.src COLLATE utf8_general_ci
-                     JOIN crm.teams ON crm.teams.id = crm.users.team_id
-                     WHERE asteriskcdrdb.cdr.calldate BETWEEN '$date_from_t' AND '$date_to_t'
-                     AND crm.users.id IN ('". implode("','", $users) ."')
-                     AND LENGTH(asteriskcdrdb.cdr.dst) > 5
-                     AND asteriskcdrdb.cdr.dcontext = 'from-internal'
-                     AND asteriskcdrdb.cdr.disposition IN ('ANSWERED','NO ANSWER')
-                     AND asteriskcdrdb.cdr.billsec >= 30
-                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%БАЗА%'
-                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Отказ%'
-                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Неотработанные%'
-                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Необработанные%'
-                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%УВОЛЕН%'
-                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Свободный Привод%'
-                     AND crm.teams.id IN ('". implode("','", $list_teams) ."')
-                     GROUP BY full_name
-                     ";
-
-        $result_calls = $dbс->query($sql_calls);
+        # Запрос для вывода количества совершенных звонков менеджером
+//        $sql_calls ="SELECT COUNT(asteriskcdrdb.cdr.src) AS calls,
+//                            crm.users.id AS users_id,
+//                            crm.teams.name AS team,
+//                            CONCAT(crm.users.last_name, ' ', crm.users.first_name) AS full_name
+//                     FROM asteriskcdrdb.cdr
+//                     JOIN crm.users ON crm.users.phone_work COLLATE utf8_general_ci = asteriskcdrdb.cdr.src COLLATE utf8_general_ci -- приводим к одной кодировке
+//                     JOIN crm.teams ON crm.teams.id = crm.users.team_id
+//                     WHERE asteriskcdrdb.cdr.calldate BETWEEN '$date_from_t' AND '$date_to_t'
+//                     AND crm.users.id IN ('". implode("','", $users) ."')
+//                     AND LENGTH(asteriskcdrdb.cdr.dst) > 5
+//                     AND asteriskcdrdb.cdr.dcontext = 'from-internal'
+//                     AND asteriskcdrdb.cdr.disposition IN ('ANSWERED','NO ANSWER')
+//                     AND asteriskcdrdb.cdr.billsec >= 30
+//                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%БАЗА%'
+//                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Отказ%'
+//                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Неотработанные%'
+//                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Необработанные%'
+//                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%УВОЛЕН%'
+//                     AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Свободный Привод%'
+//                     AND crm.teams.id IN ('". implode("','", $list_teams) ."')
+//                     GROUP BY full_name
+//                     ";
+//
+//        $result_calls = $dbc->query($sql_calls);
 //        echo '<pre>'; var_dump($sql_calls);
+
+
+
+        # Создание временной таблицы с номерами телефонов контрагентов
+        $table_accounts = "CREATE TEMPORARY TABLE asteriskcdrdb.temp_account_phones (INDEX  (clean_phone)) AS
+                    SELECT REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone_office, '+', ''), '(', ''), ')', ''), '-', ''), ' ', '') AS clean_phone
+                    FROM crm.accounts
+                    WHERE phone_office IS NOT NULL
+                    AND phone_office != ''
+                    ";
+        $dbc->query($table_accounts);
+//        echo '<pre>'; var_dump($table_accounts);
+//        echo '<pre>'; var_dump($dbc);
+
+        # Создание временной таблицы для с номерами предварительных контрагентов
+        $table_leads = "CREATE TEMPORARY TABLE asteriskcdrdb.temp_lead_phones (INDEX  (clean_phone)) AS
+                    SELECT REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone_work, '+', ''), '(', ''), ')', ''), '-', ''), ' ', '') AS clean_phone
+                    FROM crm.leads
+                    WHERE phone_work IS NOT NULL
+                    AND phone_work != ''
+                    ";
+        $dbc->query($table_leads);
+//        echo '<pre>'; var_dump($table_leads);
+
+        # SQL запрос для вывода количества исходящих звонков менеджером, а так же разделение звонков совершенны контрагентам и предварительным контрагентам
+        # подсчёт звонков по категориям выполняется с помощью создания временных таблиц(это сделано для оптимизации запроса)
+        # при создании временных таблиц используется функция REPLACE, для нормализации данных содержащихся в таблицах leads и accounts и сравнения их с данными в таблице cdr
+        $sql_call ="SELECT
+                        CONCAT(crm.users.last_name, ' ', crm.users.first_name) AS full_name,
+                        crm.users.id AS users_id,
+                        crm.teams.name AS team,
+                        COUNT(asteriskcdrdb.cdr.src) AS calls,
+                        SUM(
+                            CASE WHEN EXISTS (
+                                SELECT 1 FROM asteriskcdrdb.temp_account_phones
+                                WHERE asteriskcdrdb.temp_account_phones.clean_phone = asteriskcdrdb.cdr.dst COLLATE utf8_general_ci
+                            ) THEN 1 ELSE 0 END
+                        ) AS accounts_calls,
+
+                        SUM(
+                            CASE WHEN EXISTS (
+                                SELECT 1 FROM asteriskcdrdb.temp_lead_phones
+                                WHERE asteriskcdrdb.temp_lead_phones.clean_phone = asteriskcdrdb.cdr.dst COLLATE utf8_general_ci
+                            ) THEN 1 ELSE 0 END
+                        ) AS leads_calls
+                    FROM asteriskcdrdb.cdr
+                    JOIN crm.users ON crm.users.phone_work COLLATE utf8_general_ci = asteriskcdrdb.cdr.src COLLATE utf8_general_ci
+                    JOIN crm.teams ON crm.teams.id = crm.users.team_id
+                    WHERE asteriskcdrdb.cdr.calldate BETWEEN '$date_from_t' AND '$date_to_t'
+                    AND crm.users.id IN ('". implode("','", $users) ."')
+                    AND LENGTH(asteriskcdrdb.cdr.dst) > 5
+                    AND asteriskcdrdb.cdr.dcontext = 'from-internal'
+                    AND asteriskcdrdb.cdr.disposition IN ('ANSWERED', 'NO ANSWER')
+                    AND asteriskcdrdb.cdr.billsec >= 30
+                    AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%БАЗА%'
+                    AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Отказ%'
+                    AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Неотработанные%'
+                    AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Необработанные%'
+                    AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%УВОЛЕН%'
+                    AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Свободный Привод%'
+                    AND crm.teams.id IN ('". implode("','", $list_teams) ."')
+                    GROUP BY full_name
+                    ";
+
+        $result_calls = $dbc->query($sql_call);
+//        echo '<pre>'; var_dump($result_call);
+//        echo '<pre>'; var_dump($sql_call);
 
 
         // Запрос для вывода количества входящих звонков менеджеру
@@ -316,7 +387,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                                 AND CONCAT(crm.users.last_name, ' ', crm.users.first_name) NOT LIKE '%Свободный Привод%'
                                 GROUP BY full_name";
 
-        $result_incoming = $dbс->query($sql_incoming);
+        $result_incoming = $dbc->query($sql_incoming);
 //        echo '<pre>'; var_dump($result_incoming);
 
 
@@ -341,14 +412,18 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 $data[$users_arr][$row_deals['users_id']]['count_user'] = $row_deals['count_user'];
                 $data[$users_arr][$row_deals['users_id']]['team'] = $row_deals['team'];
                 $data[$users_arr][$row_deals['users_id']]['col_cat'] = $row_deals['col_cat'];
+                $data[$users_arr][$row_deals['users_id']]['col_pr'] = $row_deals['col_pr'];
                 // echo '<pre>'; var_dump($data);
             }
-            // Цикл для перебора значений $result_call
+            // Цикл для перебора значений $result_calls
             while (($row_calls = $result_calls->fetch(PDO::FETCH_ASSOC))) {
                 $data[$users_arr][$row_calls['users_id']]['full_name'] = $row_calls['full_name'];
                 $data[$users_arr][$row_calls['users_id']]['calls'] = $row_calls['calls'];
                 $data[$users_arr][$row_calls['users_id']]['team'] = $row_calls['team'];
+                $data[$users_arr][$row_calls['users_id']]['accounts_calls'] = $row_calls['accounts_calls'];
+                $data[$users_arr][$row_calls['users_id']]['leads_calls'] = $row_calls['leads_calls'];
             }
+
             // Цикл для перебора значений $result_inc_calls
             while (($row_incoming = $result_incoming->fetch(PDO::FETCH_ASSOC))) {
                 $data[$users_arr][$row_incoming['users_id']]['full_name'] = $row_incoming['full_name'];
@@ -380,6 +455,9 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                     'count_calls' => $row['calls'],
                     'count_inc_calls' => $row['incoming_calls'],
                     'categories_quantity' => $row['col_cat'],
+                    'count_product' => $row['col_pr'],
+                    'count_calls_ka' => $row['accounts_calls'],
+                    'count_calls_pka' => $row['leads_calls'],
                 );
                 $column_total = "Итого: ";
                 $sum_total += round($row['total'],2);
@@ -392,6 +470,8 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 $avg_count_product += $row['avg_product'];
                 $sum_calls += $row['calls'];
                 $sum_incoming += $row['incoming_calls'];
+                $sum_calls_ka += $row['accounts_calls'];
+                $sum_calls_pka += $row['leads_calls'];
 //                echo '<pre>'; var_dump($sum_users);
             }
         }
@@ -416,6 +496,8 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
             'efficiency'                    => "<b>".$sum_efficiency."</b>",
             'count_calls'                   => "<b>".$sum_calls."</b>",
             'count_inc_calls'               => "<b>".$sum_incoming."</b>",
+            'count_calls_ka'                => "<b>".$sum_calls_ka."</b>",
+            'count_calls_pka'               => "<b>".$sum_calls_pka."</b>",
         );
 
         $table['DATA'] = $data_result;
