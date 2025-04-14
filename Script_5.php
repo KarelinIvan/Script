@@ -298,25 +298,35 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
 
 
         # Создание временной таблицы с номерами телефонов контрагентов
-        $table_accounts = "CREATE TEMPORARY TABLE asteriskcdrdb.temp_account_phones (INDEX  (clean_phone)) AS
-                    SELECT REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone_office, '+', ''), '(', ''), ')', ''), '-', ''), ' ', '') AS clean_phone
-                    FROM crm.accounts
-                    WHERE phone_office IS NOT NULL
-                    AND phone_office != ''
-                    ";
+        $table_accounts = "CREATE TEMPORARY TABLE asteriskcdrdb.temp_account_phones (INDEX  (clean_phone)) AS 
+                           SELECT DISTINCT REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, '+', ''), '(', ''), ')', ''), '-', ''), ' ', '') AS clean_phone
+                           FROM (SELECT phone_office AS phone FROM crm.accounts WHERE phone_office IS NOT NULL AND phone_office != ''
+                                 UNION
+                                 SELECT phone_alternate AS phone FROM crm.accounts WHERE phone_alternate IS NOT NULL AND phone_alternate != ''
+                                 UNION
+                                 SELECT phone_home AS phone FROM crm.accounts WHERE phone_home IS NOT NULL AND phone_home != ''
+                                 UNION
+                                 SELECT phone_other AS phone FROM crm.accounts WHERE phone_other IS NOT NULL AND phone_other != ''
+                                 UNION
+                                 SELECT phone_delivery AS phone FROM crm.accounts WHERE phone_delivery IS NOT NULL AND phone_delivery != ''
+                                 UNION
+                                 SELECT phone_delivery2 AS phone FROM crm.accounts WHERE phone_delivery2 IS NOT NULL AND phone_delivery2 != ''
+                               ) AS all_phone
+                           WHERE phone IS NOT NULL AND phone != '';
+                            ";
         $dbc->query($table_accounts);
 //        echo '<pre>'; var_dump($table_accounts);
 //        echo '<pre>'; var_dump($dbc);
 
-        # Создание временной таблицы для с номерами предварительных контрагентов
-        $table_leads = "CREATE TEMPORARY TABLE asteriskcdrdb.temp_lead_phones (INDEX  (clean_phone)) AS
-                    SELECT REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone_work, '+', ''), '(', ''), ')', ''), '-', ''), ' ', '') AS clean_phone
-                    FROM crm.leads
-                    WHERE phone_work IS NOT NULL
-                    AND phone_work != ''
-                    ";
-        $dbc->query($table_leads);
-//        echo '<pre>'; var_dump($table_leads);
+//        # Создание временной таблицы для с номерами предварительных контрагентов
+//        $table_leads = "CREATE TEMPORARY TABLE asteriskcdrdb.temp_lead_phones (INDEX  (clean_phone)) AS
+//                    SELECT REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone_work, '+', ''), '(', ''), ')', ''), '-', ''), ' ', '') AS clean_phone
+//                    FROM crm.leads
+//                    WHERE phone_work IS NOT NULL
+//                    AND phone_work != ''
+//                    ";
+//        $dbc->query($table_leads);
+////        echo '<pre>'; var_dump($table_leads);
 
         # SQL запрос для вывода количества исходящих звонков менеджером, а так же разделение звонков совершенны контрагентам и предварительным контрагентам
         # подсчёт звонков по категориям выполняется с помощью создания временных таблиц(это сделано для оптимизации запроса)
@@ -331,14 +341,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                                 SELECT 1 FROM asteriskcdrdb.temp_account_phones
                                 WHERE asteriskcdrdb.temp_account_phones.clean_phone = asteriskcdrdb.cdr.dst COLLATE utf8_general_ci
                             ) THEN 1 ELSE 0 END
-                        ) AS accounts_calls,
-
-                        SUM(
-                            CASE WHEN EXISTS (
-                                SELECT 1 FROM asteriskcdrdb.temp_lead_phones
-                                WHERE asteriskcdrdb.temp_lead_phones.clean_phone = asteriskcdrdb.cdr.dst COLLATE utf8_general_ci
-                            ) THEN 1 ELSE 0 END
-                        ) AS leads_calls
+                        ) AS accounts_calls
                     FROM asteriskcdrdb.cdr
                     JOIN crm.users ON crm.users.phone_work COLLATE utf8_general_ci = asteriskcdrdb.cdr.src COLLATE utf8_general_ci
                     JOIN crm.teams ON crm.teams.id = crm.users.team_id
@@ -421,7 +424,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 $data[$users_arr][$row_calls['users_id']]['calls'] = $row_calls['calls'];
                 $data[$users_arr][$row_calls['users_id']]['team'] = $row_calls['team'];
                 $data[$users_arr][$row_calls['users_id']]['accounts_calls'] = $row_calls['accounts_calls'];
-                $data[$users_arr][$row_calls['users_id']]['leads_calls'] = $row_calls['leads_calls'];
+                // $data[$users_arr][$row_calls['users_id']]['leads_calls'] = $row_calls['leads_calls'];
             }
 
             // Цикл для перебора значений $result_inc_calls
@@ -438,8 +441,10 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
         foreach ($data as  $data_array) {
             foreach ($data_array as $row) {
 //            echo '<pre>'; var_dump($row);
-                // Функция для подсчёта эффективности менеджера
+                # Функция для подсчёта эффективности менеджера
                 $efficiency = round(($row['count_transactions']/$row['number_events'])*100, 2);
+                # Вычисляем количество совершённых звонков ПКА
+                $pka_calls = $row['calls'] - $row['accounts_calls'];
 
                 $data_result[] = array(
                     'name_manager' => $row['full_name'],
@@ -457,7 +462,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                     'categories_quantity' => $row['col_cat'],
                     'count_product' => $row['col_pr'],
                     'count_calls_ka' => $row['accounts_calls'],
-                    'count_calls_pka' => $row['leads_calls'],
+                    'count_calls_pka' => $pka_calls,
                 );
                 $column_total = "Итого: ";
                 $sum_total += round($row['total'],2);
@@ -471,7 +476,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 $sum_calls += $row['calls'];
                 $sum_incoming += $row['incoming_calls'];
                 $sum_calls_ka += $row['accounts_calls'];
-                $sum_calls_pka += $row['leads_calls'];
+                $sum_calls_pka += $pka_calls;
 //                echo '<pre>'; var_dump($sum_users);
             }
         }
