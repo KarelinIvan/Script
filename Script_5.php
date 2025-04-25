@@ -150,8 +150,8 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
 
         $user = '***';
         $pass = '***';
-        $dbh = new PDO('mysql:host=172.16.0.8;dbname=crm', $user, $pass);
-        $dbc = new PDO('mysql:host=172.16.0.8;dbname=asteriskcdrdb', $user, $pass);
+        $dbh = new PDO('mysql:host=*;dbname=*', $user, $pass);
+        $dbc = new PDO('mysql:host=*;dbname=*', $user, $pass);
 
         // Список отделов
         $list_teams = array(
