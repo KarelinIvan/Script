@@ -21,6 +21,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 array ('name' => 'count_inc_calls',       'label' => 'Кол-во входящих звонков',      'width' => '10', 'sort' => true),
                 array ('name' => 'efficiency',       'label' => 'Эффективность, %',      'width' => '10', 'sort' => true),
                 array ('name' => 'count_product',       'label' => 'Кол-во товаров',      'width' => '10', 'sort' => true),
+                array ('name' => 'avg_count_product',       'label' => 'Ср.кол-во товаров',      'width' => '10', 'sort' => true),
                 array ('name' => 'categories_quantity',       'label' => 'Кол-во кат.товара в сделке',      'width' => '10', 'sort' => true),
                 array ('name' => 'avg_quantity_transaction',       'label' => 'Ср.кол-во кат.товара в сделке',      'width' => '10', 'sort' => true),
                 array ('name' => 'total_amount',       'label' => 'Общая сумма по сделкам',      'width' => '10', 'sort' => true),
@@ -246,7 +247,8 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                             COUNT(DISTINCT users.id) AS count_user,
                             ROUND(SUM(DISTINCT opportunities.amount) / COUNT(DISTINCT opportunities.id),2) AS avg_sum,
                             ROUND(SUM(DISTINCT opportunities.amount),2) AS total,
-                            ROUND(COUNT(DISTINCT productcat.id) / COUNT(DISTINCT opportunities.id),1) AS avg_product
+                            CEIL(COUNT(DISTINCT productcat.id) / COUNT(DISTINCT opportunities.id)) AS avg_cat,
+                            CEIL(COUNT(DISTINCT productsale.id) / COUNT(DISTINCT opportunities.id)) AS avg_product
                     FROM opportunities
                     LEFT JOIN users ON users.id = opportunities.assigned_user_id
                     LEFT JOIN productsale on productsale.opportunity_id = opportunities.id
@@ -410,6 +412,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 $data[$users_arr][$row_deals['users_id']]['full_name'] = $row_deals['full_name'];
                 $data[$users_arr][$row_deals['users_id']]['count_transactions'] = $row_deals['count_transactions'];
                 $data[$users_arr][$row_deals['users_id']]['avg_product'] = $row_deals['avg_product'];
+                $data[$users_arr][$row_deals['users_id']]['avg_cat'] = $row_deals['avg_cat'];
                 $data[$users_arr][$row_deals['users_id']]['avg_sum'] = $row_deals['avg_sum'];
                 $data[$users_arr][$row_deals['users_id']]['total'] = $row_deals['total'];
                 $data[$users_arr][$row_deals['users_id']]['count_user'] = $row_deals['count_user'];
@@ -453,7 +456,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                     'preliminary_counterparties' => $row['count_pc'],
                     'counterparties' => $row['count_c'],
                     'count_transaction' => $row['count_transactions'],
-                    'avg_quantity_transaction' => $row['avg_product'],
+                    'avg_quantity_transaction' => $row['avg_cat'],
                     'avg_amount_trade' => $row['avg_sum'],
                     'total_amount' => $row['total'],
                     'efficiency' => $efficiency,
@@ -463,6 +466,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                     'count_product' => $row['col_pr'],
                     'count_calls_ka' => $row['accounts_calls'],
                     'count_calls_pka' => $pka_calls,
+                    'avg_count_product' => $row['avg_product'],
                 );
                 $column_total = "Итого: ";
                 $sum_total += round($row['total'],2);
@@ -472,7 +476,7 @@ class SimpleReportManagersDailyMissionsNew extends SimpleReport
                 $sum_count_pc += $row['count_pc'];
                 $sum_count_c += $row['count_c'];
                 $sum_transactions += $row['count_transactions'];
-                $avg_count_product += $row['avg_product'];
+                $avg_count_product += $row['avg_cat'];
                 $sum_calls += $row['calls'];
                 $sum_incoming += $row['incoming_calls'];
                 $sum_calls_ka += $row['accounts_calls'];
